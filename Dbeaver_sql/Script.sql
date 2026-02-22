@@ -78,15 +78,45 @@ CREATE TABLE warehouse.fact_churn (
         REFERENCES warehouse.dim_accounts(account_id)
 );
 
-SELECT * FROM warehouse.fact_feature_usage;
-SELECT * FROM warehouse.fact_churn;
-SELECT * FROM warehouse.fact_support;
 
-SELECT * FROM warehouse.fact_subscriptions ;
 
-SELECT * FROM warehouse.dim_accounts da ;
+ #creating views
+ 
+ CREATE OR REPLACE VIEW warehouse.monthly_mrr AS
+SELECT
+    DATE_TRUNC('month', start_date) AS month,
+    SUM(mrr_amount) AS total_mrr
+FROM warehouse.fact_subscriptions
+GROUP BY 1
+ORDER BY 1;
 
-SELECT COUNT(*)
+CREATE OR REPLACE VIEW warehouse.revenue_by_plan AS
+SELECT
+    plan_tier,
+    SUM(mrr_amount) AS total_mrr,
+    SUM(arr_amount) AS total_arr,
+    COUNT(*) AS subscription_count
+FROM warehouse.fact_subscriptions
+GROUP BY plan_tier
+ORDER BY total_mrr DESC;
+
+CREATE OR REPLACE VIEW warehouse.revenue_by_region AS
+SELECT
+    da.country,
+    SUM(fs.mrr_amount) AS total_mrr,
+    SUM(fs.arr_amount) AS total_arr
 FROM warehouse.fact_subscriptions fs
 JOIN warehouse.dim_accounts da
-  ON fs.account_id = da.account_id;
+  ON fs.account_id = da.account_id
+GROUP BY da.country
+ORDER BY total_mrr DESC;
+
+CREATE OR REPLACE VIEW warehouse.churned_mrr AS
+SELECT
+    DATE_TRUNC('month', start_date) AS month,
+    SUM(mrr_amount) AS churned_mrr
+FROM warehouse.fact_subscriptions
+WHERE churn_flag = TRUE
+GROUP BY 1
+ORDER BY 1;
+
