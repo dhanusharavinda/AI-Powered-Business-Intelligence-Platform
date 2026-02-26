@@ -1,0 +1,12 @@
+pandas
+sqlalchemy
+psycopg2-binary
+python-dotenv
+
+
+| Package       | Purpose               |
+| ------------- | --------------------- |
+| pandas        | Data transformation   |
+| psycopg2      | PostgreSQL connection |
+| sqlalchemy    | Clean DB handling     |
+| python-dotenv | Secure DB credentials |

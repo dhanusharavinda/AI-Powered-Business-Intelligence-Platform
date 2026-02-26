@@ -120,3 +120,146 @@ WHERE churn_flag = TRUE
 GROUP BY 1
 ORDER BY 1;
 
+CREATE OR REPLACE VIEW warehouse.monthly_churn_rate AS
+WITH monthly_totals AS (
+    SELECT
+        DATE_TRUNC('month', start_date) AS month,
+        COUNT(*) AS total_subscriptions
+    FROM warehouse.fact_subscriptions
+    GROUP BY 1
+),
+monthly_churned AS (
+    SELECT
+        DATE_TRUNC('month', start_date) AS month,
+        COUNT(*) AS churned_subscriptions
+    FROM warehouse.fact_subscriptions
+    WHERE churn_flag = TRUE
+    GROUP BY 1
+)
+SELECT
+    mt.month,
+    mt.total_subscriptions,
+    COALESCE(mc.churned_subscriptions, 0) AS churned_subscriptions,
+    ROUND(
+        COALESCE(mc.churned_subscriptions, 0)::numeric
+        / NULLIF(mt.total_subscriptions, 0),
+        4
+    ) AS churn_rate
+FROM monthly_totals mt
+LEFT JOIN monthly_churned mc
+    ON mt.month = mc.month
+ORDER BY mt.month;
+
+select * from warehouse.monthly_churn_rate
+
+
+CREATE OR REPLACE VIEW warehouse.churn_by_plan AS
+SELECT
+    plan_tier,
+    COUNT(*) AS total_subscriptions,
+    COUNT(*) FILTER (WHERE churn_flag = TRUE) AS churned_count,
+    ROUND(
+        COUNT(*) FILTER (WHERE churn_flag = TRUE)::numeric
+        / NULLIF(COUNT(*), 0),
+        4
+    ) AS churn_rate
+FROM warehouse.fact_subscriptions
+GROUP BY plan_tier
+ORDER BY churn_rate DESC;
+
+select * from warehouse.churn_by_plan
+
+CREATE OR REPLACE VIEW warehouse.churn_by_industry AS
+SELECT
+    da.industry,
+    COUNT(*) AS total_subscriptions,
+    COUNT(*) FILTER (WHERE fs.churn_flag = TRUE) AS churned_count,
+    ROUND(
+        COUNT(*) FILTER (WHERE fs.churn_flag = TRUE)::numeric
+        / NULLIF(COUNT(*), 0),
+        4
+    ) AS churn_rate
+FROM warehouse.fact_subscriptions fs
+JOIN warehouse.dim_accounts da
+    ON fs.account_id = da.account_id
+GROUP BY da.industry
+ORDER BY churn_rate DESC;
+
+select * from warehouse.churn_by_industry
+
+CREATE OR REPLACE VIEW warehouse.avg_subscription_duration AS
+SELECT
+    AVG(end_date - start_date) AS avg_duration_days
+FROM warehouse.fact_subscriptions
+WHERE churn_flag = TRUE
+AND end_date IS NOT NULL;
+
+select * from warehouse.avg_subscription_duration
+
+CREATE OR REPLACE VIEW warehouse.upgrade_before_churn_rate AS
+WITH churned_accounts AS (
+    SELECT account_id
+    FROM warehouse.fact_subscriptions
+    WHERE churn_flag = TRUE
+),
+multi_plan_accounts AS (
+    SELECT account_id
+    FROM warehouse.fact_subscriptions
+    GROUP BY account_id
+    HAVING COUNT(DISTINCT plan_tier) > 1
+)
+SELECT
+    COUNT(*) FILTER (WHERE mp.account_id IS NOT NULL)::numeric
+    / NULLIF(COUNT(*), 0) AS upgrade_before_churn_rate
+FROM churned_accounts ca
+LEFT JOIN multi_plan_accounts mp
+    ON ca.account_id = mp.account_id;
+
+select * from warehouse.upgrade_before_churn_rate
+
+CREATE OR REPLACE VIEW warehouse.support_churn_correlation AS
+WITH support_counts AS (
+    SELECT
+        account_id,
+        COUNT(*) AS ticket_count
+    FROM warehouse.fact_support
+    GROUP BY account_id
+)
+SELECT
+    CASE
+        WHEN sc.ticket_count >= 5 THEN 'high_support'
+        ELSE 'low_support'
+    END AS support_bucket,
+    COUNT(*) AS total_accounts,
+    COUNT(*) FILTER (WHERE fs.churn_flag = TRUE) AS churned_accounts,
+    ROUND(
+        COUNT(*) FILTER (WHERE fs.churn_flag = TRUE)::numeric
+        / NULLIF(COUNT(*), 0),
+        4
+    ) AS churn_rate
+FROM warehouse.fact_subscriptions fs
+LEFT JOIN support_counts sc
+    ON fs.account_id = sc.account_id
+GROUP BY support_bucket
+ORDER BY churn_rate DESC;
+
+SELECT * FROM warehouse.support_churn_correlation;
+
+
+SELECT
+    table_name AS view_name,
+    column_name,
+    data_type
+FROM information_schema.columns
+WHERE table_schema = 'warehouse'
+AND table_name IN (
+    'monthly_churn_rate',
+    'churn_by_plan',
+    'churn_by_industry',
+    'avg_subscription_duration',
+    'upgrade_before_churn_rate',
+    'support_churn_correlation'
+)
+ORDER BY table_name, ordinal_position;
+
+

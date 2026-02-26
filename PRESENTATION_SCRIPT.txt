@@ -1,0 +1,233 @@
+================================================================================
+                    PRESENTATION SCRIPT: SaaS Intelligence MCP
+                    Duration: 10-15 minutes with live demo
+================================================================================
+
+OPENING (1 minute)
+--------------------------------------------------------------------------------
+"Today I'm demonstrating a production-ready AI-powered Business Intelligence 
+system for SaaS companies. This isn't a prototype — it's a fully functional 
+system that lets executives ask natural language questions about their business 
+and get specific, grounded answers."
+
+THE PROBLEM (1 minute)
+--------------------------------------------------------------------------------
+"Every SaaS company struggles with the same issue: executives need insights 
+fast, but:
+- Dashboards are static and require interpretation
+- SQL queries need technical expertise
+- Generic AI chatbots hallucinate or give vague answers like 'the highest plan'
+- Data teams are bottlenecked with ad-hoc requests
+
+We built a system that bridges this gap: AI that speaks your business language 
+while strictly using your actual data."
+
+THE SOLUTION - ARCHITECTURE (2 minutes)
+--------------------------------------------------------------------------------
+"Our solution follows a strict 3-layer architecture we call MCP - 
+Model Context Protocol:
+
+[DRAW/SHOW DIAGRAM]
+
+LAYER 1 - DATA: PostgreSQL warehouse with analytical views
+  - monthly_mrr, revenue_by_plan, revenue_by_region
+  - churn_by_plan, churn_by_industry, support_correlation
+
+LAYER 2 - API: FastAPI MCP layer
+  - REST endpoints that query the database
+  - Returns clean JSON
+  - This is the ONLY layer touching the database
+
+LAYER 3 - AI: Intelligence layer
+  - Accepts natural language
+  - Detects what the user wants
+  - Calls ONLY the relevant API endpoints
+  - Structures data with exact labels
+  - Sends structured context to OpenAI
+  - Returns executive-grade answer
+
+THE KEY INSIGHT: AI never touches the database. It only calls your controlled 
+APIs. This prevents SQL injection, limits data exposure, and ensures answers 
+are grounded in actual metrics."
+
+LIVE DEMO - SETUP (1 minute)
+--------------------------------------------------------------------------------
+"Let me show you the system running. [Start server if not running]
+
+Our database has a SaaS company's data:
+- Multiple subscription plans (Basic, Pro, Enterprise)
+- Revenue across regions (US, UK, India, etc.)
+- Churn data by plan and industry
+- Support ticket correlation data
+
+The system is now live at localhost:8000."
+
+LIVE DEMO - BASIC QUESTIONS (2 minutes)
+--------------------------------------------------------------------------------
+"[Open browser to http://127.0.0.1:8000]
+
+QUESTION 1: 'Is there any churn risk?'
+
+[Type question, wait for response]
+
+Notice the AI doesn't vomit everything. It detected this is a CHURN question, 
+so it only passed churn-related metrics to the LLM:
+- Highest churn plan
+- Highest churn industry
+- Support escalation correlation
+
+And look at the specificity: 'Enterprise plan has the highest churn rate at 9.98%' 
+— not 'the highest plan.' The system forces exact labels and numeric values."
+
+LIVE DEMO - REVENUE QUESTIONS (2 minutes)
+--------------------------------------------------------------------------------
+"QUESTION 2: 'Which plan contributes the most revenue?'
+
+[Type question]
+
+Again, specific: 'Pro plan with MRR of $45,832.'
+
+But here's the interesting part — watch what happens when I ask a RANKING 
+question."
+
+LIVE DEMO - RANKING QUESTIONS (2 minutes)
+--------------------------------------------------------------------------------
+"QUESTION 3: 'What is the second highest revenue plan?'
+
+[Type question]
+
+Most AI systems fail here. They only know the top metric, so they can't answer
+'second' or 'third' or 'rank by.'
+
+Our system detects RANKING intent and fetches the FULL DISTRIBUTION. It sends
+the ranked list to the LLM, which can now correctly identify index positions.
+
+Answer: 'The second highest revenue plan is Enterprise with $25,885, after Pro 
+which leads with $45,832.'
+
+Let's try one more: 'Top 3 churn industries.'
+
+[Type question]
+
+The system returns the top 3 from the sorted list with exact industries and 
+churn rates."
+
+SECURITY DISCUSSION (1 minute)
+--------------------------------------------------------------------------------
+"Security is critical. Notice:
+
+1. The AI layer CANNOT access the database. It only makes HTTP calls to our
+   controlled API endpoints.
+
+2. No SQL in prompts. The LLM never sees raw database queries.
+
+3. Structured context only. The LLM receives: {"plan_name": "Enterprise", 
+   "churn_rate": 9.98} — not vague descriptions.
+
+4. Temperature is locked at 0.2 for deterministic, factual responses.
+
+The remaining risk is external: data goes to OpenAI. For highly sensitive 
+data, you'd swap in a self-hosted LLM."
+
+TECHNICAL HIGHLIGHTS (1 minute)
+--------------------------------------------------------------------------------
+"Some technical choices worth noting:
+
+- Pure Python standard library for HTTP (urllib) — no extra dependencies
+- FastAPI for the API layer — automatic OpenAPI docs
+- Intent detection with keyword matching — no heavy NLP libraries
+- In-memory conversation history with TTL — simple but effective
+- Auto-detection of column names — works with varying warehouse schemas
+- Minimal vanilla JS frontend — no React, no build step, professional look"
+
+LIMITATIONS & NEXT STEPS (1 minute)
+--------------------------------------------------------------------------------
+"Current limitations:
+- No authentication (demo only)
+- In-memory storage (resets on restart)
+- Requires OpenAI API key
+
+Next steps for production:
+1. Add authentication and rate limiting
+2. Persist chat history to database
+3. Add request logging and monitoring
+4. Consider self-hosted LLM for data privacy
+
+But as an MVP, this demonstrates the core pattern: AI that grounds its answers
+in structured data through a controlled API layer."
+
+CLOSING (30 seconds)
+--------------------------------------------------------------------------------
+"This system shows how AI can be practical for business intelligence:
+- Not hallucinating generic advice
+- Not requiring SQL expertise
+- Answering exactly what was asked with specific, actionable insights
+
+Questions?"
+
+================================================================================
+                    DEMO CHECKLIST
+================================================================================
+
+BEFORE PRESENTATION:
+[ ] Start PostgreSQL (ensure warehouse views exist)
+[ ] Activate venv: .\venv\Scripts\Activate.ps1
+[ ] Start server: python -m uvicorn app.main:app --reload
+[ ] Set OPENAI_API_KEY environment variable
+[ ] Open browser to http://127.0.0.1:8000
+[ ] Test each demo question beforehand
+[ ] Have terminal visible to show code if asked
+
+TEST QUESTIONS TO VERIFY:
+1. "Is there any churn risk?" 
+   Expected: Specific plan name + churn rate + industry + correlation
+
+2. "Which plan contributes the most revenue?"
+   Expected: Specific plan name + exact MRR value
+
+3. "What is the second highest revenue plan?"
+   Expected: Correct second-ranked plan with value
+
+4. "Top 3 churn industries"
+   Expected: List of 3 industries with churn rates
+
+5. "What is our latest MRR and 3-month growth?"
+   Expected: Numeric MRR + percentage
+
+IF SOMETHING BREAKS:
+- Check terminal for Python errors
+- Verify .env has correct DB credentials
+- Verify OPENAI_API_KEY is set
+- Restart uvicorn with --reload flag
+
+================================================================================
+                    ANTICIPATED Q&A
+================================================================================
+
+Q: Why not just use ChatGPT with a database connector?
+A: Direct DB access from AI is risky (SQL injection, over-permissioning). 
+   Our MCP pattern isolates the AI from the database, adds a controlled API
+   layer, and ensures structured data before LLM calls.
+
+Q: What if the warehouse schema changes?
+A: The system has fallback logic to auto-detect label and value columns.
+   It tries specific column names first, then infers from data types.
+
+Q: Can this handle multiple companies/tenants?
+A: Not currently. Would need row-level security in MCP layer and 
+   authenticated sessions. The architecture supports this addition.
+
+Q: Why not use LangChain or LlamaIndex?
+A: We intentionally kept dependencies minimal. The pattern is simple:
+   detect intent → call endpoints → structure → prompt LLM. External
+   frameworks add complexity without adding value for this use case.
+
+Q: How accurate are the answers?
+A: The LLM only sees structured metrics we provide. It can't hallucinate
+   numbers that aren't in the data. However, it can still make reasoning
+   errors — we mitigate with low temperature and explicit instructions.
+
+================================================================================
+DOCUMENT VERSION: 1.0
+LAST UPDATED: 2026-02-25
+================================================================================

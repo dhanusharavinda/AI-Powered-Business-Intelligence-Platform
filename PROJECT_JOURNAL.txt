@@ -1,0 +1,187 @@
+================================================================================
+                    PROJECT JOURNAL: SaaS Intelligence MCP
+================================================================================
+
+PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+This is a production-grade AI-powered Business Intelligence (BI) system that 
+allows executives to ask natural language questions about SaaS business metrics
+and receive executive-grade, specific answers grounded in actual database data.
+
+ARCHITECTURE (The MCP Pattern)
+--------------------------------------------------------------------------------
+The system follows a strict 3-layer architecture called "Model Context Protocol" (MCP):
+
+Layer 1: Data Layer (Postgres Warehouse)
+    - Database contains analytical views (warehouse schema)
+    - Views include: monthly_mrr, revenue_by_plan, revenue_by_region, 
+      churn_by_plan, churn_by_industry, support_churn_correlation, etc.
+    - AI NEVER queries this directly
+
+Layer 2: MCP API Layer (FastAPI)
+    - Exposes REST endpoints: /revenue/*, /churn/*, /ai/*
+    - Endpoints query warehouse views and return JSON
+    - This is the ONLY layer that touches the database
+    - OpenAPI documentation at /docs
+
+Layer 3: AI Intelligence Layer
+    - Accepts natural language questions
+    - Detects user intent (revenue, churn, plan, industry, region, support, ranking)
+    - Calls ONLY relevant MCP endpoints via HTTP (never DB)
+    - Summarizes JSON into structured metrics with exact labels and values
+    - Sends structured context (NOT raw JSON) to OpenAI LLM
+    - Returns executive-grade answer with trend analysis, risk evaluation, 
+      business recommendation, and optional follow-up question
+
+KEY FEATURES
+--------------------------------------------------------------------------------
+1. INTENT-BASED CONTEXT FILTERING
+   - If user asks "Is there churn risk?", only churn-related metrics are passed to LLM
+   - Prevents "information vomit" - AI answers only what was asked
+
+2. RANKING-SAFE QUESTIONS
+   - Handles "second highest", "third", "rank by", "top 3", "compare"
+   - Fetches full distributions (not just top-1) so LLM can answer ranking questions
+   - Example: "What is the second highest revenue plan?" → correct answer from sorted list
+
+3. STRICT STRUCTURED CONTEXT
+   - AI receives: {"plan_name": "Enterprise", "mrr": 25885} (not vague "highest plan")
+   - System prompt forces LLM to use exact labels and numeric values
+   - Temperature locked at 0.2 for deterministic, factual responses
+
+4. CONVERSATION MEMORY
+   - Maintains session-based chat history (in-memory, 6-hour TTL)
+   - Follow-up questions maintain context without re-fetching data
+
+5. MINIMAL PROFESSIONAL UI
+   - Clean white background, centered 800px container
+   - User messages right-aligned (light grey), AI left-aligned (darker grey)
+   - System font, no flashy styling
+   - "List of questions you can ask" button with pre-populated suggestions
+
+SECURITY ARCHITECTURE
+--------------------------------------------------------------------------------
+✓ AI layer CANNOT access database directly
+✓ AI only calls your own MCP endpoints (which you control)
+✓ Database credentials isolated in MCP layer only
+✓ No SQL in prompts, no raw JSON exposure to LLM
+
+⚠ Potential risks:
+  - Data sent to OpenAI for reasoning (consider for sensitive data)
+  - Currently no authentication on API (add before production)
+  - In-memory session storage (resets on restart, not multi-user safe)
+
+TECH STACK
+--------------------------------------------------------------------------------
+Backend:  Python 3.13, FastAPI, Uvicorn
+Database: PostgreSQL with warehouse analytical views
+AI:       OpenAI GPT-4o-mini (via API, temperature 0.2)
+Frontend: Pure HTML + CSS + Vanilla JS (no frameworks)
+HTTP:     urllib (standard library, no external HTTP client deps)
+
+KEY FILES
+--------------------------------------------------------------------------------
+app/main.py                 - FastAPI app, static file mounting, routers
+app/routes/revenue.py       - Revenue endpoints (/revenue/monthly, /by-plan, etc.)
+app/routes/churn.py         - Churn endpoints (/churn/by-plan, /by-industry, etc.)
+app/routes/ai.py            - AI endpoints (/ai/chat, /ai/executive-report)
+app/services/ai_chat_service.py  - Core AI logic (intent detection, ranking, LLM calls)
+app/services/ai_service.py       - Wrapper for executive report endpoint
+app/db.py                   - Postgres connection pool, query execution
+app/config.py             - Environment configuration (DB, OpenAI keys)
+app/static/index.html       - Chatbot UI (clean, professional, minimal)
+
+ENVIRONMENT VARIABLES
+--------------------------------------------------------------------------------
+DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD  - Postgres connection
+OPENAI_API_KEY                                      - OpenAI API access
+OPENAI_MODEL (default: gpt-4o-mini)                  - LLM model selection
+OPENAI_TEMPERATURE (default: 0.2)                  - Deterministic responses
+MCP_BASE_URL (default: http://127.0.0.1:8000)      - Self-reference for HTTP calls
+AI_MEMORY_MAX_TURNS (default: 10)                  - Chat memory depth
+AI_MEMORY_TTL_SECONDS (default: 21600)               - Session expiry (6 hours)
+AI_RANKING_MAX_ITEMS (default: 25)                 - Max items in ranked lists
+
+QUESTION TYPES SUPPORTED
+--------------------------------------------------------------------------------
+REVENUE QUESTIONS:
+  - "What is our latest MRR?"
+  - "What is the 3-month growth percentage?"
+  - "Which plan contributes the most revenue?"
+  - "What is the second highest revenue plan?"
+  - "Rank regions by revenue"
+
+CHURN QUESTIONS:
+  - "Is there any churn risk?"
+  - "Which plan has the highest churn rate?"
+  - "Which industry has the highest churn?"
+  - "What is the third highest churn industry?"
+
+SUPPORT QUESTIONS:
+  - "Is support escalation correlated with churn?"
+  - "What is the correlation value?"
+
+RANKING/COMPARISON:
+  - "Top 3 churn industries"
+  - "Compare plans by revenue"
+  - "Distribution of revenue by region"
+
+EXECUTIVE SUMMARY:
+  - "Executive overview"
+  - "Company health check"
+  - "Board summary"
+
+EXAMPLE AI RESPONSES
+--------------------------------------------------------------------------------
+Question: "Is there any churn risk?"
+Answer:   "The Enterprise plan has the highest churn rate at 9.98%. The DevTools 
+          industry shows the highest industry-level churn at 10.79%. Support 
+          escalation correlation is 0.63, indicating a moderate positive relationship 
+          between support tickets and churn."
+
+Question: "Which plan contributes the most revenue?"
+Answer:   "The Pro plan contributes the most revenue with an MRR of $45,832, 
+          followed by Enterprise at $25,885 and Basic at $12,450."
+
+Question: "What is the second highest churn industry?"
+Answer:   "The second highest churn industry is FinTech at 8.45%, after DevTools 
+          which leads at 10.79%."
+
+CURRENT LIMITATIONS
+--------------------------------------------------------------------------------
+1. DEPLOYMENT READYNESS:
+   - No authentication/authorization system
+   - No rate limiting
+   - In-memory chat (not persistent, not multi-user)
+   - Single process (no horizontal scaling)
+
+2. DATA DEPENDENCIES:
+   - Requires specific warehouse view schemas
+   - Column name detection has fallback logic but isn't 100% guaranteed
+   - Large ranked lists increase token cost
+
+3. AI LIMITATIONS:
+   - Requires OpenAI API key (external dependency)
+   - LLM can still make reasoning errors even with structured data
+   - No source citation links in answers
+
+4. SCOPE LIMITATIONS:
+   - Only supports predefined warehouse views
+   - Cannot answer ad-hoc SQL questions (by design)
+   - No real-time data streaming
+
+NEXT STEPS FOR PRODUCTION
+--------------------------------------------------------------------------------
+1. Add authentication (API keys or OAuth)
+2. Add rate limiting per user
+3. Persist chat history to database (not memory)
+4. Add request/response logging
+5. Add admin dashboard for monitoring
+6. Consider OpenAI alternatives (self-hosted LLM) for data privacy
+7. Add row-level security for multi-tenant SaaS
+
+================================================================================
+DOCUMENT VERSION: 1.0
+LAST UPDATED: 2026-02-25
+PROJECT STATUS: Functional MVP, ready for demo, needs hardening for production
+================================================================================

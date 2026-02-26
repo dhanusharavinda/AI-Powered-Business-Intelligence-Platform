@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SaaS Intelligence AI</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --border: #e6e6e6;
+        --text: #111111;
+        --muted: #666666;
+        --user: #f2f2f2;
+        --ai: #e9e9e9;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .page {
+        min-height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 800px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        height: min(80vh, 820px);
+        background: #fff;
+      }
+
+      header {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .header-left {
+        font-weight: 600;
+      }
+      .ideas-btn {
+        padding: 8px 10px;
+        font-size: 12px;
+        border-radius: 10px;
+        align-self: flex-start;
+        white-space: nowrap;
+      }
+
+      .ideas {
+        border-top: 1px solid var(--border);
+        padding: 12px 18px;
+        background: #fff;
+        display: none;
+      }
+
+      .ideas.visible {
+        display: block;
+      }
+
+      .ideas-title {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+
+      .ideas-list {
+        margin: 0;
+        padding-left: 18px;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .ideas-list li {
+        margin: 6px 0;
+        cursor: pointer;
+      }
+
+      .ideas-list li:hover {
+        text-decoration: underline;
+      }
+
+      .subheader {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 4px;
+        font-weight: 400;
+      }
+
+      .chat {
+        padding: 16px 18px;
+        overflow-y: auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-sizing: border-box;
+      }
+
+      .msg {
+        max-width: 78%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        white-space: pre-wrap;
+        line-height: 1.35;
+        font-size: 14px;
+      }
+
+      .msg.user {
+        align-self: flex-end;
+        background: var(--user);
+        border-top-right-radius: 6px;
+      }
+
+      .msg.ai {
+        align-self: flex-start;
+        background: var(--ai);
+        border-top-left-radius: 6px;
+      }
+
+      .composer {
+        border-top: 1px solid var(--border);
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        background: #fff;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        padding: 12px 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 14px;
+        outline: none;
+      }
+
+      button {
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .meta {
+        font-size: 12px;
+        color: var(--muted);
+        padding: 0 18px 14px;
+      }
+
+      .meta code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="container">
+        <header>
+          <div class="header-left">
+            SaaS Intelligence AI
+            <div class="subheader">Executive-grade insights from your MCP endpoints</div>
+          </div>
+          <button id="ideasBtn" class="ideas-btn" type="button">
+            Questions you can ask.
+          </button>
+        </header>
+
+        <div id="ideas" class="ideas" aria-hidden="true">
+          <div class="ideas-title">Click a question to insert it.</div>
+          <ul id="ideasList" class="ideas-list">
+            <li>Is there any churn risk right now? Which plan and industry are driving it?</li>
+            <li>What is the highest churn plan and its churn rate?</li>
+            <li>What is the highest churn industry and its churn rate?</li>
+            <li>Is support escalation correlated with churn? What is the correlation value?</li>
+            <li>What is our latest MRR and 3-month growth percentage?</li>
+            <li>Which plan contributes the most revenue (MRR) and how much?</li>
+            <li>Which region contributes the most revenue (MRR) and how much?</li>
+            <li>What is the monthly churn rate trend?</li>
+            <li>What is the average subscription duration and what does it imply for retention?</li>
+            <li>Do customers upgrade before churn? What does the view indicate?</li>
+          </ul>
+        </div>
+
+        <div id="chat" class="chat" aria-live="polite"></div>
+
+        <div class="composer">
+          <input id="input" type="text" placeholder="Ask a question (e.g., Is there churn risk?)" autocomplete="off" />
+          <button id="send">Send</button>
+        </div>
+
+        <div class="meta">
+          Session: <code id="session"></code>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const chatEl = document.getElementById("chat");
+      const inputEl = document.getElementById("input");
+      const sendBtn = document.getElementById("send");
+      const sessionEl = document.getElementById("session");
+
+      function uuid() {
+        if (crypto && crypto.randomUUID) return crypto.randomUUID();
+        // Fallback UUID v4-ish
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0;
+          const v = c === "x" ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      }
+
+      let sessionId = uuid();
+      sessionEl.textContent = sessionId;
+
+      function addMessage(role, text) {
+        const div = document.createElement("div");
+        div.className = `msg ${role}`;
+        div.textContent = text;
+        chatEl.appendChild(div);
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+
+      async function send() {
+        const q = (inputEl.value || "").trim();
+        if (!q) return;
+
+        addMessage("user", q);
+        inputEl.value = "";
+        inputEl.focus();
+
+        sendBtn.disabled = true;
+        inputEl.disabled = true;
+
+        try {
+          const res = await fetch("/ai/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: q, session_id: sessionId }),
+          });
+
+          if (!res.ok) {
+            const txt = await res.text();
+            addMessage("ai", `Error ${res.status}: ${txt}`);
+            return;
+          }
+
+          const data = await res.json();
+          if (data && data.session_id) {
+            sessionId = data.session_id;
+            sessionEl.textContent = sessionId;
+          }
+          addMessage("ai", (data && data.answer) ? data.answer : "No answer returned.");
+        } catch (e) {
+          addMessage("ai", `Request failed: ${e}`);
+        } finally {
+          sendBtn.disabled = false;
+          inputEl.disabled = false;
+        }
+      }
+
+      sendBtn.addEventListener("click", send);
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          send();
+        }
+      });
+
+      const ideasBtn = document.getElementById("ideasBtn");
+      const ideasEl = document.getElementById("ideas");
+      const ideasList = document.getElementById("ideasList");
+
+      ideasBtn.addEventListener("click", () => {
+        const visible = ideasEl.classList.toggle("visible");
+        ideasEl.setAttribute("aria-hidden", String(!visible));
+      });
+
+      ideasList.addEventListener("click", (e) => {
+        const li = e.target && e.target.closest ? e.target.closest("li") : null;
+        if (!li) return;
+        inputEl.value = li.textContent.trim();
+        inputEl.focus();
+      });
+
+      addMessage("ai", "Ask a question to generate insights for your company.");
+      inputEl.focus();
+    </script>
+  </body>
+</html>
+
